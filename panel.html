@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>API Spec Generator</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <div class="brand">
+        <span class="brand-icon">⚡</span>
+        <span class="brand-name">API Spec Generator</span>
+        <span id="count-badge" class="badge">0</span>
+      </div>
+      <div class="actions">
+        <button id="btn-cancel" class="btn btn-ghost" style="display:none">Cancel</button>
+        <button id="btn-clear"  class="btn btn-ghost" title="Clear all captured endpoints">Clear</button>
+        <button id="btn-export" class="btn btn-primary" title="Export as JSON">
+          Export as JSON
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+
+        <!-- Search -->
+        <div class="search-wrapper">
+          <input id="search" class="search" type="text" placeholder="Search by path or method…" />
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+          <div class="filter-row">
+            <span class="filter-label">Method</span>
+            <div class="pills" id="method-pills">
+              <button class="pill active" data-method="ALL">All</button>
+              <button class="pill" data-method="GET">GET</button>
+              <button class="pill" data-method="POST">POST</button>
+              <button class="pill" data-method="PUT">PUT</button>
+              <button class="pill" data-method="PATCH">PATCH</button>
+              <button class="pill" data-method="DELETE">DEL</button>
+            </div>
+          </div>
+
+          <div class="filter-row">
+            <span class="filter-label">Status</span>
+            <div class="pills" id="status-pills">
+              <button class="pill active" data-status="ALL">All</button>
+              <button class="pill" data-status="2xx">2xx</button>
+              <button class="pill" data-status="3xx">3xx</button>
+              <button class="pill" data-status="4xx">4xx</button>
+              <button class="pill" data-status="5xx">5xx</button>
+            </div>
+          </div>
+
+          <div class="filter-row filter-row-toggle">
+            <span class="filter-label">Smart Filter</span>
+            <label class="toggle" title="Hide JS bundles, HMR, HTML navigation and other build noise">
+              <input type="checkbox" id="smart-filter" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span id="smart-filter-label" class="toggle-text">On</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Counters -->
+        <div class="list-meta">
+          <span id="showing-count" class="showing-count">— endpoints</span>
+        </div>
+
+        <ul id="endpoint-list" class="endpoint-list">
+          <li class="empty-state">
+            <span>No endpoints captured.</span>
+            <small>Reload the monitored page.</small>
+          </li>
+        </ul>
+      </aside>
+
+      <main id="detail-panel" class="detail-panel">
+        <div class="detail-placeholder">
+          <span>← Select an endpoint to view its details</span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>
