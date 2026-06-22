@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "API Spec Generator",
+  "version": "0.1.0",
+  "description": "Captures HTTP traffic in real time and generates OpenAPI 3.1 specifications automatically.",
+  "devtools_page": "devtools.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "API Spec Generator"
+  }
+}
