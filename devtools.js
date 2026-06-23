@@ -11,6 +11,7 @@ const state = { captured_endpoints: [] };
 const INSPECTED_TAB_ID = chrome.devtools.inspectedWindow.tabId;
 
 let port;
+// Reconnects when the MV3 service worker is killed by Chrome after ~30 s of inactivity.
 function connectPort() {
   port = chrome.runtime.connect({ name: 'devtools' });
   port.onDisconnect.addListener(() => setTimeout(connectPort, 300));
