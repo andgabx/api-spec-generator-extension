@@ -103,6 +103,11 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
       }
     }
 
-    port.postMessage({ type: 'STATE_UPDATE', state, tabId: INSPECTED_TAB_ID });
+    try {
+      port.postMessage({ type: 'STATE_UPDATE', state, tabId: INSPECTED_TAB_ID });
+    } catch (e) {
+      // Ignore: port disconnected due to MV3 service worker lifecycle.
+      // It will auto-reconnect and the next request will push the updated state.
+    }
   });
 });
