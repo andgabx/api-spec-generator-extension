@@ -91,6 +91,14 @@ html, body, #app {
 }
 .btn-primary:hover { opacity: 0.85; }
 
+.btn-secondary {
+  background: var(--orange);
+  color: var(--bg-alt);
+  border-color: var(--orange);
+  font-weight: 600;
+}
+.btn-secondary:hover { opacity: 0.85; }
+
 /* ── Layout ── */
 .layout {
   display: flex;

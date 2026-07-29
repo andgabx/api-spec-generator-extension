@@ -1,6 +1,10 @@
 // panel.js — real-time UI, filtering, selection, and JSON export
 
+import { getJWTFromHeaders, decodeJWT, getTokenExpiry } from './lib/jwt.js';
+import { buildPostmanCollection }                        from './lib/postman.js';
+
 // ── State ─────────────────────────────────────────────────────────────────────
+
 
 let allEndpoints      = [];
 let selectedId        = null;
@@ -10,21 +14,23 @@ let filterStatus      = 'ALL';
 let smartFilter       = true;
 
 let exportMode        = false;
+let exportFormat      = 'openapi'; // 'openapi' | 'postman'
 let selectedForExport = new Set();   // Set of endpoint IDs
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
-const appEl          = document.getElementById('app');
-const listEl         = document.getElementById('endpoint-list');
-const detailEl       = document.getElementById('detail-panel');
-const countBadge     = document.getElementById('count-badge');
-const showingCountEl = document.getElementById('showing-count');
-const searchEl       = document.getElementById('search');
-const btnClear       = document.getElementById('btn-clear');
-const btnCancel      = document.getElementById('btn-cancel');
-const btnExport      = document.getElementById('btn-export');
-const smartFilterEl  = document.getElementById('smart-filter');
-const smartLabelEl   = document.getElementById('smart-filter-label');
+const appEl              = document.getElementById('app');
+const listEl             = document.getElementById('endpoint-list');
+const detailEl           = document.getElementById('detail-panel');
+const countBadge         = document.getElementById('count-badge');
+const showingCountEl     = document.getElementById('showing-count');
+const searchEl           = document.getElementById('search');
+const btnClear           = document.getElementById('btn-clear');
+const btnCancel          = document.getElementById('btn-cancel');
+const btnExport          = document.getElementById('btn-export');
+const btnExportPostman   = document.getElementById('btn-export-postman');
+const smartFilterEl      = document.getElementById('smart-filter');
+const smartLabelEl       = document.getElementById('smart-filter-label');
 
 // ── Background connection (auto-reconnect for MV3 SW lifecycle) ───────────────
 
@@ -88,32 +94,37 @@ function filteredEndpoints() {
 
 // ── Export mode ───────────────────────────────────────────────────────────────
 
-function enterExportMode() {
-  exportMode = true;
+function enterExportMode(format = 'openapi') {
+  exportMode   = true;
+  exportFormat = format;
   selectedForExport.clear();
   appEl.classList.add('export-mode');
-  btnCancel.style.display = '';
-  btnClear.style.display  = 'none';
+  btnCancel.style.display        = '';
+  btnClear.style.display         = 'none';
+  btnExportPostman.style.display = 'none';
   updateExportButton();
   renderList();
   if (selectedId) renderDetail(selectedId);
 }
 
 function exitExportMode() {
-  exportMode = false;
+  exportMode   = false;
+  exportFormat = 'openapi';
   selectedForExport.clear();
   appEl.classList.remove('export-mode');
-  btnCancel.style.display = 'none';
-  btnClear.style.display  = '';
-  btnExport.textContent   = 'Export as JSON';
-  btnExport.disabled      = false;
+  btnCancel.style.display        = 'none';
+  btnClear.style.display         = '';
+  btnExportPostman.style.display = '';
+  btnExport.textContent          = 'Export OpenAPI';
+  btnExport.disabled             = false;
   renderList();
   if (selectedId) renderDetail(selectedId);
 }
 
 function updateExportButton() {
-  const n = selectedForExport.size;
-  btnExport.textContent = n === 0 ? 'Export as JSON' : `Export ${n} selected`;
+  const n      = selectedForExport.size;
+  const label  = exportFormat === 'postman' ? 'Postman' : 'OpenAPI';
+  btnExport.textContent = n === 0 ? `Export ${label}` : `Export ${n} as ${label}`;
   btnExport.disabled    = n === 0;
 }
 
@@ -131,12 +142,24 @@ function toggleEndpointSelection(id) {
 function downloadSelected() {
   const toExport = allEndpoints.filter((ep) => selectedForExport.has(ep.id));
   if (toExport.length === 0) return;
-  const spec = buildOpenAPISpec(toExport);
-  const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' });
+
+  let content, filename, mime;
+
+  if (exportFormat === 'postman') {
+    content  = JSON.stringify(buildPostmanCollection(toExport), null, 2);
+    filename = `postman-collection-${new Date().toISOString().slice(0, 10)}.json`;
+    mime     = 'application/json';
+  } else {
+    content  = JSON.stringify(buildOpenAPISpec(toExport), null, 2);
+    filename = `api-spec-${new Date().toISOString().slice(0, 10)}.json`;
+    mime     = 'application/json';
+  }
+
+  const blob = new Blob([content], { type: mime });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `api-spec-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
   exitExportMode();
@@ -180,10 +203,18 @@ btnClear.addEventListener('click', () => {
 
 btnCancel.addEventListener('click', exitExportMode);
 
+btnExportPostman.addEventListener('click', () => {
+  if (!exportMode) {
+    enterExportMode('postman');
+  } else if (exportFormat === 'postman') {
+    downloadSelected();
+  }
+});
+
 btnExport.addEventListener('click', () => {
   if (!exportMode) {
-    enterExportMode();
-  } else {
+    enterExportMode('openapi');
+  } else if (exportFormat === 'openapi') {
     downloadSelected();
   }
 });
