@@ -1,5 +1,7 @@
 // panel.js — real-time UI, filtering, selection, and JSON export
 
+import { getJWTFromHeaders, decodeJWT, getTokenExpiry } from './lib/jwt.js';
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let allEndpoints      = [];
@@ -316,6 +318,8 @@ function renderDetail(id) {
 
       ${renderRequestBodySection(ep)}
 
+      ${renderJWTSection(ep)}
+
       <section class="detail-section">
         <h3>Request Headers</h3>
         <pre class="code-block">${escHtml(formatHeaders(ep.request_headers))}</pre>
@@ -403,7 +407,97 @@ function renderRequestBodySection(ep) {
     </section>`;
 }
 
+// ── JWT Decoder section renderer ──────────────────────────────────────────────
+
+/**
+ * Formats a JWT claim value for human-readable display.
+ * Date claims (exp, iat, nbf, etc.) → ISO string.
+ * Arrays → comma-separated. Objects → JSON. Primitives → String.
+ */
+function formatClaimValue(key, value) {
+  const DATE_CLAIMS = new Set(['exp', 'iat', 'nbf', 'auth_time', 'updated_at']);
+  if (DATE_CLAIMS.has(key) && typeof value === 'number') {
+    return new Date(value * 1000).toISOString();
+  }
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object' && value !== null) return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Renders the JWT Decoder section for an endpoint.
+ * Only shown when a Bearer JWT is detected in request headers.
+ * States: no JWT | redacted | decode failure | valid/expiring/expired/no-exp.
+ */
+function renderJWTSection(ep) {
+  const rawToken = getJWTFromHeaders(ep.request_headers ?? []);
+
+  if (!rawToken) return '';
+
+  if (rawToken === '<REDACTED>') {
+    return `
+      <section class="detail-section">
+        <div class="section-heading"><h3>JWT Token</h3></div>
+        <p class="no-body">Token was redacted — disable sensitive data redaction to decode.</p>
+      </section>`;
+  }
+
+  const decoded = decodeJWT(rawToken);
+  if (!decoded) {
+    return `
+      <section class="detail-section">
+        <div class="section-heading"><h3>JWT Token</h3></div>
+        <div class="jwt-warning">⚠️ Token detected but could not be decoded (malformed base64 or JSON).</div>
+      </section>`;
+  }
+
+  const { header, payload, raw } = decoded;
+  const expiry   = getTokenExpiry(payload);
+  const algBadge = header.alg
+    ? `<span class="jwt-alg-badge">${escHtml(String(header.alg))}</span>`
+    : '';
+
+  const EXP_META = {
+    valid:    { icon: '🟢', label: expiry.timeLeft },
+    expiring: { icon: '🟡', label: expiry.timeLeft + ' (expiring soon)' },
+    expired:  { icon: '🔴', label: 'Expired — ' + expiry.expiresAt?.toISOString() },
+    'no-exp': { icon: '⚪', label: 'No expiry claim' },
+  };
+  const expMeta = EXP_META[expiry.status];
+  const expRow  = `
+    <tr class="jwt-exp-${expiry.status}">
+      <td class="jwt-claim-name">exp</td>
+      <td class="jwt-claim-value"><span class="jwt-exp-icon">${expMeta.icon}</span>${escHtml(expMeta.label)}</td>
+    </tr>`;
+
+  const claimRows = Object.entries(payload)
+    .filter(([k]) => k !== 'exp')
+    .map(([k, v]) => `
+      <tr>
+        <td class="jwt-claim-name">${escHtml(k)}</td>
+        <td class="jwt-claim-value">${escHtml(formatClaimValue(k, v))}</td>
+      </tr>`)
+    .join('');
+
+  const rawBlock = `
+    <details class="body-raw">
+      <summary>Raw token</summary>
+      <pre class="code-block" style="word-break:break-all;white-space:pre-wrap">${escHtml(raw)}</pre>
+    </details>`;
+
+  return `
+    <section class="detail-section">
+      <div class="section-heading"><h3>JWT Token</h3>${algBadge}</div>
+      <table class="jwt-claims">
+        ${expRow}
+        ${claimRows}
+      </table>
+      ${rawBlock}
+    </section>`;
+}
+
 // ── OpenAPI 3.1 builder ───────────────────────────────────────────────────────
+
 
 // Maps BODY_FORMAT values to the canonical MIME type used in OpenAPI content keys.
 const BODY_FORMAT_TO_MIME = {
