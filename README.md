@@ -36,6 +36,22 @@ This extension is currently intended for manual installation via Developer Mode:
 
 ---
 
+## 📖 Understanding the Icons (Legend)
+
+The left sidebar uses visual indicators so you can understand an endpoint at a glance:
+
+- 🔒 **Authenticated:** The request includes authentication headers or cookies.
+- 🌐 **Public:** The request does not contain any authentication information.
+- 🔑 **JWT Detected:** A JSON Web Token was found transmitting through this endpoint (could be in headers, cookies, URL query, or the JSON body). Click it to see the decoded token payload!
+- 🔵 **Blue Dot:** Indicates the request contains a Body Payload (e.g. POST data).
+
+**Status Colors:**
+- **Green (2xx):** Success.
+- **Yellow (3xx):** Redirect.
+- **Red (4xx/5xx):** Client or Server Error.
+
+---
+
 ## 💡 How to use
 
 1. **Start Capturing**: Open the DevTools panel and interact with your web application (log in, submit forms, fetch data). Endpoints will appear in the panel automatically.

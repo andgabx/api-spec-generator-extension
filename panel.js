@@ -200,6 +200,9 @@ btnClear.addEventListener('click', () => {
   selectedId   = null;
   renderList();
   renderPlaceholder();
+  
+  // Also clear state in background so they don't reappear on next network event
+  port.postMessage({ type: 'CLEAR_STATE' });
 });
 
 btnCancel.addEventListener('click', exitExportMode);
@@ -261,7 +264,7 @@ function renderList() {
   listEl.innerHTML = visible.map((ep) => {
     const isChecked = selectedForExport.has(ep.id);
     const hasBody   = ep.request_body !== null && ep.request_body !== undefined;
-    const hasJWT    = !!ep.response_jwt || !!getJWTFromHeaders(ep.request_headers ?? []);
+    const hasJWT    = ep.jwt_sources && ep.jwt_sources.length > 0;
     return `
       <li
         class="endpoint-item ${ep.id === selectedId ? 'selected' : ''} ${ep.last_status >= 400 ? 'error' : ''} ${isChecked ? 'export-checked' : ''}"
@@ -523,12 +526,12 @@ function renderJWTBlock(rawToken, sourceLabel) {
  * Renders the JWT Decoder section for an endpoint.
  */
 function renderJWTSection(ep) {
-  const reqToken = getJWTFromHeaders(ep.request_headers ?? []);
-  const resToken = ep.response_jwt;
+  if (!ep.jwt_sources || ep.jwt_sources.length === 0) return '';
 
   let html = '';
-  if (reqToken) html += renderJWTBlock(reqToken, 'Request Header');
-  if (resToken && resToken !== reqToken) html += renderJWTBlock(resToken, 'Response Body');
+  for (const jwt of ep.jwt_sources) {
+    html += renderJWTBlock(jwt.token, jwt.sourceLabel);
+  }
 
   return html;
 }

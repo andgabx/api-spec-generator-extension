@@ -9,7 +9,8 @@ import { sanitizeHeaders, sanitizeBody,
          hasAuthHeader }                        from './lib/sanitize.js';
 import { inferSchema, mergeTwoSchemas }         from './lib/schema.js';
 import { captureRequestBody, mergeRequestBody } from './lib/request-body.js';
-import { findJWTInObject }                      from './lib/jwt.js';
+import { findJWTInObject, extractJWTsFromHeaders,
+         extractJWTsFromUrl }                   from './lib/jwt.js';
 
 // ── Panel registration ────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ chrome.devtools.panels.create('SpecCatcher', 'icons/icon16.png', 'panel.html', (
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-const state = { captured_endpoints: [] };
+let state = { captured_endpoints: [] };
 const INSPECTED_TAB_ID = chrome.devtools.inspectedWindow.tabId;
 
 // ── Port (auto-reconnect for MV3 SW lifecycle) ────────────────────────────────
@@ -25,6 +26,16 @@ const INSPECTED_TAB_ID = chrome.devtools.inspectedWindow.tabId;
 let port;
 function connectPort() {
   port = chrome.runtime.connect({ name: 'devtools' });
+  
+  port.onMessage.addListener((msg) => {
+    if (msg.type === 'CLEAR_STATE') {
+      state.captured_endpoints = [];
+      try {
+        port.postMessage({ type: 'STATE_UPDATE', state, tabId: INSPECTED_TAB_ID });
+      } catch {}
+    }
+  });
+
   port.onDisconnect.addListener(() => setTimeout(connectPort, 300));
 }
 connectPort();
@@ -50,6 +61,13 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
   const sanitizedResHdrs  = sanitizeHeaders(resHeaders);
   const security_required = hasAuthHeader(reqHeaders);
 
+  // Extract JWTs before sanitization
+  const jwtSources = [
+    ...extractJWTsFromUrl(url),
+    ...extractJWTsFromHeaders(reqHeaders, 'Request'),
+    ...extractJWTsFromHeaders(resHeaders, 'Response'),
+  ];
+
   // Capture request body synchronously — postData is already on the request object.
   const request_body = captureRequestBody(request);
 
@@ -60,7 +78,8 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
     if (body && contentType.includes('json')) {
       try {
         const parsedBody = JSON.parse(body);
-        responseJwt = findJWTInObject(parsedBody);
+        const bodyJwt = findJWTInObject(parsedBody);
+        if (bodyJwt) jwtSources.push({ token: bodyJwt, sourceLabel: 'Response Body (JSON)' });
         responseSchema = inferSchema(sanitizeBody(parsedBody));
       } catch { /* non-JSON body */ }
     }
@@ -74,7 +93,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
       existing.call_count        = (existing.call_count || 1) + 1;
       existing.security_required = existing.security_required || security_required;
       existing.request_body      = mergeRequestBody(existing.request_body, request_body);
-      existing.response_jwt      = responseJwt || existing.response_jwt;
+      existing.jwt_sources       = [...(existing.jwt_sources || []), ...jwtSources].filter((v,i,a)=>a.findIndex(t=>(t.token === v.token))===i);
 
       if (responseSchema && existing.schema_evolution) {
         existing.schema_evolution = mergeTwoSchemas(existing.schema_evolution, responseSchema);
@@ -94,7 +113,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
         response_headers: sanitizedResHdrs,
         schema_evolution: responseSchema,
         request_body,
-        response_jwt:     responseJwt,
+        jwt_sources:      jwtSources,
         timestamp:        new Date().toISOString(),
       });
 
