@@ -228,6 +228,7 @@ function renderList() {
 
   listEl.innerHTML = visible.map((ep) => {
     const isChecked = selectedForExport.has(ep.id);
+    const hasBody   = ep.request_body !== null && ep.request_body !== undefined;
     return `
       <li
         class="endpoint-item ${ep.id === selectedId ? 'selected' : ''} ${ep.last_status >= 400 ? 'error' : ''} ${isChecked ? 'export-checked' : ''}"
@@ -240,6 +241,7 @@ function renderList() {
         ${ep.security_required
           ? '<span class="auth-icon" title="Authenticated">🔒</span>'
           : '<span class="auth-icon public" title="Public">🌐</span>'}
+        ${hasBody ? '<span class="body-dot" title="Has request body"></span>' : '<span style="width:6px;flex-shrink:0"></span>'}
         <span class="ep-check ${isChecked ? 'checked' : ''}" data-id="${ep.id}" title="Select for export"></span>
       </li>`;
   }).join('');
@@ -312,6 +314,8 @@ function renderDetail(id) {
         ${schemaHtml}
       </section>
 
+      ${renderRequestBodySection(ep)}
+
       <section class="detail-section">
         <h3>Request Headers</h3>
         <pre class="code-block">${escHtml(formatHeaders(ep.request_headers))}</pre>
@@ -340,6 +344,63 @@ function escHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ── Request Body section renderer ─────────────────────────────────────────────
+
+/**
+ * Renders the full "Request Body" detail section for an endpoint.
+ * Handles all states: no body, binary, parseable with schema, raw-only, truncated.
+ */
+function renderRequestBodySection(ep) {
+  const rb = ep.request_body;
+
+  // No body captured (GET, HEAD, OPTIONS, or simply not present)
+  if (!rb) {
+    return `
+      <section class="detail-section">
+        <div class="section-heading"><h3>Request Body</h3></div>
+        <p class="no-body">No request body (${ep.method}).</p>
+      </section>`;
+  }
+
+  const formatClass = 'format-' + rb.format.replace(/[^a-z-]/g, '');
+  const formatBadge = `<span class="format-badge ${formatClass}">${rb.format}</span>`;
+
+  // Binary — just signal presence, no content to show
+  if (rb.format === 'binary') {
+    return `
+      <section class="detail-section">
+        <div class="section-heading"><h3>Request Body</h3>${formatBadge}</div>
+        <p class="no-body">Binary payload — content not shown.</p>
+      </section>`;
+  }
+
+  // Schema block (JSON, form-urlencoded, multipart)
+  const schemaBlock = rb.schema
+    ? `<pre class="code-block">${escHtml(JSON.stringify(rb.schema, null, 2))}</pre>`
+    : `<p class="no-body">Schema could not be inferred for this format.</p>`;
+
+  // Collapsible raw body
+  const rawBlock = rb.raw
+    ? `<details class="body-raw">
+        <summary>Raw body</summary>
+        <pre class="code-block">${escHtml(rb.raw)}</pre>
+       </details>`
+    : '';
+
+  // Truncation warning
+  const truncWarning = rb.truncated
+    ? `<div class="truncation-warning">⚠️ Body exceeded 50 KB — only the first 50 KB is shown.</div>`
+    : '';
+
+  return `
+    <section class="detail-section">
+      <div class="section-heading"><h3>Request Body</h3>${formatBadge}</div>
+      ${schemaBlock}
+      ${rawBlock}
+      ${truncWarning}
+    </section>`;
 }
 
 // ── OpenAPI 3.1 builder ───────────────────────────────────────────────────────

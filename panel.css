@@ -529,3 +529,97 @@ html, body, #app {
   transform: rotate(45deg) translate(-1px, -1px);
   display: block;
 }
+
+/* ── Request Body section ── */
+
+/* Format badge — shown next to the section heading */
+.format-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.format-json           { background: #1a3a28; color: #a6e3a1; }
+.format-form-urlencoded{ background: #1c3a5e; color: #89b4fa; }
+.format-multipart      { background: #2a1d3d; color: #cba6f7; }
+.format-xml            { background: #3d2f0a; color: #f9e2af; }
+.format-text           { background: var(--bg-hover); color: var(--text-muted); }
+.format-binary         { background: var(--bg-hover); color: var(--text-muted); }
+
+/* Section heading row — aligns title + badge horizontally */
+.section-heading {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.section-heading h3 {
+  /* inherit existing h3 styles but remove bottom margin (handled by parent) */
+  margin-bottom: 0;
+}
+
+/* Collapsible raw body block */
+.body-raw {
+  margin-top: 8px;
+}
+
+.body-raw summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.12s;
+}
+.body-raw summary::-webkit-details-marker { display: none; }
+.body-raw summary::before {
+  content: '▶';
+  font-size: 8px;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.body-raw[open] summary::before { transform: rotate(90deg); }
+.body-raw summary:hover { color: var(--text-dim); }
+
+/* Truncation warning banner */
+.truncation-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+  border-radius: var(--radius);
+  font-size: 11px;
+  color: var(--yellow);
+}
+
+/* Muted placeholder when no body */
+.no-body {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Body presence indicator dot on list items */
+.body-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--purple);
+  flex-shrink: 0;
+  opacity: 0.8;
+  title: "Has request body";
+}
