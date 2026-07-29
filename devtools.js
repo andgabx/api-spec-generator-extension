@@ -9,6 +9,7 @@ import { sanitizeHeaders, sanitizeBody,
          hasAuthHeader }                        from './lib/sanitize.js';
 import { inferSchema, mergeTwoSchemas }         from './lib/schema.js';
 import { captureRequestBody, mergeRequestBody } from './lib/request-body.js';
+import { findJWTInObject }                      from './lib/jwt.js';
 
 // ── Panel registration ────────────────────────────────────────────────────────
 
@@ -54,10 +55,13 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
 
   request.getContent((body) => {
     let responseSchema = null;
+    let responseJwt = null;
 
     if (body && contentType.includes('json')) {
       try {
-        responseSchema = inferSchema(sanitizeBody(JSON.parse(body)));
+        const parsedBody = JSON.parse(body);
+        responseJwt = findJWTInObject(parsedBody);
+        responseSchema = inferSchema(sanitizeBody(parsedBody));
       } catch { /* non-JSON body */ }
     }
 
@@ -70,6 +74,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
       existing.call_count        = (existing.call_count || 1) + 1;
       existing.security_required = existing.security_required || security_required;
       existing.request_body      = mergeRequestBody(existing.request_body, request_body);
+      existing.response_jwt      = responseJwt || existing.response_jwt;
 
       if (responseSchema && existing.schema_evolution) {
         existing.schema_evolution = mergeTwoSchemas(existing.schema_evolution, responseSchema);
@@ -89,6 +94,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
         response_headers: sanitizedResHdrs,
         schema_evolution: responseSchema,
         request_body,
+        response_jwt:     responseJwt,
         timestamp:        new Date().toISOString(),
       });
 

@@ -261,6 +261,7 @@ function renderList() {
   listEl.innerHTML = visible.map((ep) => {
     const isChecked = selectedForExport.has(ep.id);
     const hasBody   = ep.request_body !== null && ep.request_body !== undefined;
+    const hasJWT    = !!ep.response_jwt || !!getJWTFromHeaders(ep.request_headers ?? []);
     return `
       <li
         class="endpoint-item ${ep.id === selectedId ? 'selected' : ''} ${ep.last_status >= 400 ? 'error' : ''} ${isChecked ? 'export-checked' : ''}"
@@ -270,6 +271,7 @@ function renderList() {
         <span class="method method-${ep.method.toLowerCase()}">${ep.method}</span>
         <span class="path">${truncatePath(ep.path)}</span>
         <span class="status status-${statusBand(ep.last_status)}">${ep.last_status}</span>
+        ${hasJWT ? '<span class="jwt-badge-icon" title="Contains JWT">🔑</span>' : ''}
         ${ep.security_required
           ? '<span class="auth-icon" title="Authenticated">🔒</span>'
           : '<span class="auth-icon public" title="Public">🌐</span>'}
@@ -454,20 +456,11 @@ function formatClaimValue(key, value) {
   return String(value);
 }
 
-/**
- * Renders the JWT Decoder section for an endpoint.
- * Only shown when a Bearer JWT is detected in request headers.
- * States: no JWT | redacted | decode failure | valid/expiring/expired/no-exp.
- */
-function renderJWTSection(ep) {
-  const rawToken = getJWTFromHeaders(ep.request_headers ?? []);
-
-  if (!rawToken) return '';
-
+function renderJWTBlock(rawToken, sourceLabel) {
   if (rawToken === '<REDACTED>') {
     return `
       <section class="detail-section">
-        <div class="section-heading"><h3>JWT Token</h3></div>
+        <div class="section-heading"><h3>JWT Token (${sourceLabel})</h3></div>
         <p class="no-body">Token was redacted — disable sensitive data redaction to decode.</p>
       </section>`;
   }
@@ -476,8 +469,8 @@ function renderJWTSection(ep) {
   if (!decoded) {
     return `
       <section class="detail-section">
-        <div class="section-heading"><h3>JWT Token</h3></div>
-        <div class="jwt-warning">⚠️ Token detected but could not be decoded (malformed base64 or JSON).</div>
+        <div class="section-heading"><h3>JWT Token (${sourceLabel})</h3></div>
+        <div class="jwt-warning">⚠️ Token detected but could not be decoded.</div>
       </section>`;
   }
 
@@ -490,7 +483,7 @@ function renderJWTSection(ep) {
   const EXP_META = {
     valid:    { icon: '🟢', label: expiry.timeLeft },
     expiring: { icon: '🟡', label: expiry.timeLeft + ' (expiring soon)' },
-    expired:  { icon: '🔴', label: 'Expired — ' + expiry.expiresAt?.toISOString() },
+    expired:  { icon: '🔴', label: 'Expired — ' + (expiry.expiresAt ? expiry.expiresAt.toISOString() : '') },
     'no-exp': { icon: '⚪', label: 'No expiry claim' },
   };
   const expMeta = EXP_META[expiry.status];
@@ -517,13 +510,27 @@ function renderJWTSection(ep) {
 
   return `
     <section class="detail-section">
-      <div class="section-heading"><h3>JWT Token</h3>${algBadge}</div>
+      <div class="section-heading"><h3>JWT Token (${sourceLabel})</h3>${algBadge}</div>
       <table class="jwt-claims">
         ${expRow}
         ${claimRows}
       </table>
       ${rawBlock}
     </section>`;
+}
+
+/**
+ * Renders the JWT Decoder section for an endpoint.
+ */
+function renderJWTSection(ep) {
+  const reqToken = getJWTFromHeaders(ep.request_headers ?? []);
+  const resToken = ep.response_jwt;
+
+  let html = '';
+  if (reqToken) html += renderJWTBlock(reqToken, 'Request Header');
+  if (resToken && resToken !== reqToken) html += renderJWTBlock(resToken, 'Response Body');
+
+  return html;
 }
 
 // ── OpenAPI 3.1 builder ───────────────────────────────────────────────────────

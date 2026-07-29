@@ -285,6 +285,12 @@ html, body, #app {
 .endpoint-item.error { border-left: 2px solid var(--red); }
 .endpoint-item.error.selected { border-left: 2px solid var(--red); background: #2d1b22; }
 
+.jwt-badge-icon {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-right: 4px;
+}
+
 .path {
   flex: 1;
   font-family: var(--font-mono);
