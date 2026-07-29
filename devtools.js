@@ -12,7 +12,7 @@ import { captureRequestBody, mergeRequestBody } from './lib/request-body.js';
 
 // ── Panel registration ────────────────────────────────────────────────────────
 
-chrome.devtools.panels.create('API Spec', 'icons/icon16.png', 'panel.html', () => {});
+chrome.devtools.panels.create('SpecCatcher', 'icons/icon16.png', 'panel.html', () => {});
 
 // ── State ─────────────────────────────────────────────────────────────────────
 

@@ -32,7 +32,7 @@ This extension is currently intended for manual installation via Developer Mode:
 2. Open Chrome and navigate to `chrome://extensions`.
 3. Enable **Developer mode** (toggle in the top-right corner).
 4. Click **Load unpacked** and select the repository folder.
-5. Open any web page, press **F12** to open DevTools, and navigate to the **API Spec** tab.
+5. Open any web page, press **F12** to open DevTools, and navigate to the **SpecCatcher** tab.
 
 ---
 
