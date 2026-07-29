@@ -1,13 +1,14 @@
 // devtools.js — network capture orchestration
 // Responsibilities: listen to network events, build endpoint state, relay to panel.
-// Business logic (schema, sanitize, normalize) lives in lib/.
+// Business logic (schema, sanitize, normalize, request-body) lives in lib/.
 
-import { MAX_ENDPOINTS }                    from './lib/constants.js';
+import { MAX_ENDPOINTS }                        from './lib/constants.js';
 import { normalizePath, endpointKey,
-         shouldCapture }                    from './lib/normalize.js';
+         shouldCapture }                        from './lib/normalize.js';
 import { sanitizeHeaders, sanitizeBody,
-         hasAuthHeader }                    from './lib/sanitize.js';
-import { inferSchema, mergeTwoSchemas }     from './lib/schema.js';
+         hasAuthHeader }                        from './lib/sanitize.js';
+import { inferSchema, mergeTwoSchemas }         from './lib/schema.js';
+import { captureRequestBody, mergeRequestBody } from './lib/request-body.js';
 
 // ── Panel registration ────────────────────────────────────────────────────────
 
@@ -48,6 +49,9 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
   const sanitizedResHdrs  = sanitizeHeaders(resHeaders);
   const security_required = hasAuthHeader(reqHeaders);
 
+  // Capture request body synchronously — postData is already on the request object.
+  const request_body = captureRequestBody(request);
+
   request.getContent((body) => {
     let responseSchema = null;
 
@@ -60,11 +64,12 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
     const existing = state.captured_endpoints.find((ep) => endpointKey(ep.method, ep.path) === key);
 
     if (existing) {
-      existing.last_status     = status;
-      existing.content_type    = contentType;
-      existing.timestamp       = new Date().toISOString();
-      existing.call_count      = (existing.call_count || 1) + 1;
+      existing.last_status       = status;
+      existing.content_type      = contentType;
+      existing.timestamp         = new Date().toISOString();
+      existing.call_count        = (existing.call_count || 1) + 1;
       existing.security_required = existing.security_required || security_required;
+      existing.request_body      = mergeRequestBody(existing.request_body, request_body);
 
       if (responseSchema && existing.schema_evolution) {
         existing.schema_evolution = mergeTwoSchemas(existing.schema_evolution, responseSchema);
@@ -83,6 +88,7 @@ chrome.devtools.network.onRequestFinished.addListener((request) => {
         request_headers:  sanitizedReqHdrs,
         response_headers: sanitizedResHdrs,
         schema_evolution: responseSchema,
+        request_body,
         timestamp:        new Date().toISOString(),
       });
 
